@@ -847,20 +847,38 @@ async function renderProfile() {
             </div>`).join('')
         : '<p class="profile-mini-empty">还没有日记</p>';
 
-    // 寄出的信
+    // 寄出的信（Supabase 真实信件 + localStorage 预设信件）
     const sent = loadData(LETTERS_SENT_KEY, []);
-    document.getElementById('profileSentCount').textContent = sent.length > 0 ? `${sent.length}封` : '';
-    document.getElementById('profileSentList').innerHTML = sent.length > 0
-        ? sent.slice(-3).reverse().map(l => {
+    let sbSentCount = 0;
+    let sbSentRecent = [];
+    if (user.auroraId) {
+        const { data: sbSent } = await sb.from('sent_letters').select('*').eq('from_aurora_id', user.auroraId).order('created_at', { ascending: false }).limit(3);
+        sbSentRecent = sbSent || [];
+        const { count } = await sb.from('sent_letters').select('*', { count: 'exact', head: true }).eq('from_aurora_id', user.auroraId);
+        sbSentCount = count || 0;
+    }
+    const totalSent = sbSentCount + sent.length;
+    document.getElementById('profileSentCount').textContent = totalSent > 0 ? `${totalSent}封` : '';
+
+    // 合并显示（Supabase 真实在前）
+    const profileSentItems = [
+        ...sbSentRecent.map(l => ({
+            name: l.to_name, preview: l.content, isReal: true
+        })),
+        ...sent.slice(-3).reverse().map(l => {
             const toProfile = FAKE_PROFILES.find(p => p.id === l.to);
-            return `
+            return { name: toProfile ? toProfile.name : l.to, preview: l.content, isReal: false };
+        })
+    ].slice(0, 3);
+
+    document.getElementById('profileSentList').innerHTML = profileSentItems.length > 0
+        ? profileSentItems.map(item => `
             <div class="profile-mini-item">
                 <span class="profile-mini-item-icon">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="22,6 12,13 2,6"/></svg>
                 </span>
-                <span class="profile-mini-item-text">致 ${toProfile ? toProfile.name : l.to} · ${escapeHTML(l.content.slice(0, 30))}...</span>
-            </div>`;
-        }).join('')
+                <span class="profile-mini-item-text">致 ${escapeHTML(item.name)} · ${escapeHTML(item.preview.slice(0, 30))}...</span>
+            </div>`).join('')
         : '<p class="profile-mini-empty">还没有寄出过信</p>';
 
     // 捡到的漂流信（从 Supabase）
@@ -948,13 +966,28 @@ function renderDiscover() {
 }
 
 // 在写信弹窗中打开，预填收信人
-function openCompose(profileId) {
+async function openCompose(profileId) {
     const user = loadData(STORAGE_KEY);
     if (!user) { switchView('register'); return; }
     const select = document.getElementById('composeRecipient');
-    select.innerHTML = FAKE_PROFILES.map(p =>
+
+    // 加载真实好友
+    let friendOptions = '';
+    if (user.auroraId) {
+        const { data: friends } = await sb.from('friends').select('*').eq('user_aurora_id', user.auroraId);
+        if (friends && friends.length > 0) {
+            friendOptions = friends.map(f =>
+                `<option value="${f.friend_aurora_id}">${escapeHTML(f.friend_name)} 🧑‍🤝‍🧑</option>`
+            ).join('');
+        }
+    }
+
+    // 预设人物作为补充
+    const fakeOptions = FAKE_PROFILES.map(p =>
         `<option value="${p.id}" ${p.id === profileId ? 'selected' : ''}>${p.name} (${p.nameCN})</option>`
     ).join('');
+
+    select.innerHTML = friendOptions + fakeOptions;
     document.getElementById('composeContent').value = '';
     document.getElementById('composeCount').textContent = '0';
     document.getElementById('composeError').textContent = '';
@@ -968,18 +1001,51 @@ function openCompose(profileId) {
 // ============================================================
 let sentLetters = loadData(LETTERS_SENT_KEY, []);
 let receivedLetters = loadData(LETTERS_RECEIVED_KEY, []);
+let sbSentLetters = [];      // Supabase 真实寄出的信
+let sbReceivedLetters = [];  // Supabase 真实收到的信
 
 function generateId() { return 'ltr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
 
-function sendLetter(to, content) {
+async function sendLetter(to, content) {
     const user = loadData(STORAGE_KEY);
     if (!user) return;
+
+    // 真实好友（极光ID以AL-开头）→ Supabase
+    if (to.startsWith('AL-')) {
+        const { data: recipient } = await sb.from('profiles').select('name').eq('aurora_id', to).maybeSingle();
+        const toName = recipient ? recipient.name : to;
+
+        // 存入寄件箱（发件人视角）
+        await sb.from('sent_letters').insert({
+            from_aurora_id: user.auroraId,
+            from_name: user.name,
+            to_aurora_id: to,
+            to_name: toName,
+            content: content,
+            status: 'sent',
+            created_at: new Date().toISOString()
+        });
+
+        // 存入收件箱（收件人视角）
+        await sb.from('received_letters').insert({
+            from_aurora_id: user.auroraId,
+            from_name: user.name,
+            to_aurora_id: to,
+            content: content,
+            status: 'new',
+            created_at: new Date().toISOString()
+        });
+
+        return;
+    }
+
+    // 预设人物 → localStorage（保留模拟回复）
     const profile = FAKE_PROFILES.find(p => p.id === to);
     const letter = {
         id: generateId(),
         to, toName: profile ? profile.name : to,
         content, timestamp: Date.now(),
-        status: 'sent' // sent → delivered → replied
+        status: 'sent'
     };
     sentLetters.unshift(letter);
     saveData(LETTERS_SENT_KEY, sentLetters);
@@ -1027,129 +1093,233 @@ function generateReply(sentLetter) {
     showToast('你收到了一封新的回信！');
 }
 
-function renderLetters() {
+async function renderLetters() {
+    // localStorage（预设人物信件）
     sentLetters = loadData(LETTERS_SENT_KEY, []);
     receivedLetters = loadData(LETTERS_RECEIVED_KEY, []);
 
-    // 收件箱
+    const user = loadData(STORAGE_KEY);
+
+    // 加载 Supabase 真实信件
+    sbSentLetters = [];
+    sbReceivedLetters = [];
+    const avatarMap = {}; // aurora_id → avatar
+
+    if (user && user.auroraId) {
+        const [sentRes, receivedRes] = await Promise.all([
+            sb.from('sent_letters').select('*').eq('from_aurora_id', user.auroraId).order('created_at', { ascending: false }),
+            sb.from('received_letters').select('*').eq('to_aurora_id', user.auroraId).order('created_at', { ascending: false })
+        ]);
+
+        sbSentLetters = (sentRes.data || []).map(l => ({
+            ...l,
+            isReal: true,
+            timestamp: new Date(l.created_at).getTime()
+        }));
+        sbReceivedLetters = (receivedRes.data || []).map(l => ({
+            ...l,
+            isReal: true,
+            timestamp: new Date(l.created_at).getTime()
+        }));
+
+        // 批量加载头像
+        const allIds = [...new Set([
+            ...sbSentLetters.map(l => l.to_aurora_id),
+            ...sbReceivedLetters.map(l => l.from_aurora_id)
+        ])];
+        if (allIds.length > 0) {
+            const { data: profiles } = await sb.from('profiles').select('aurora_id,avatar').in('aurora_id', allIds);
+            (profiles || []).forEach(p => { avatarMap[p.aurora_id] = p.avatar; });
+        }
+    }
+
+    // 标记新收到的真实信件为已读（打开信件页即视为已读）
+    for (const l of sbReceivedLetters) {
+        if (l.status === 'new') {
+            sb.from('received_letters').update({ status: 'read' }).eq('id', l.id).then();
+            l.status = 'read';
+        }
+    }
+
+    // 合并：真实信件在前，预设在后
+    const allReceived = [...sbReceivedLetters, ...receivedLetters].sort((a, b) => b.timestamp - a.timestamp);
+    const allSent = [...sbSentLetters, ...sentLetters].sort((a, b) => b.timestamp - a.timestamp);
+
+    // ===== 收件箱 =====
     const inboxList = document.getElementById('inboxList');
     const inboxEmpty = document.getElementById('inboxEmpty');
-    if (receivedLetters.length === 0) {
+    if (allReceived.length === 0) {
         inboxEmpty.style.display = 'block';
         inboxList.innerHTML = '';
     } else {
         inboxEmpty.style.display = 'none';
-        inboxList.innerHTML = receivedLetters.map(l => {
-            const profile = FAKE_PROFILES.find(p => p.id === l.from);
-            const avatarData = profile ? AVATAR_ICONS.find(a => a.id === profile.avatar) : AVATAR_ICONS[0];
+        inboxList.innerHTML = allReceived.map(l => {
+            let avatarId;
+            if (l.isReal) {
+                avatarId = avatarMap[l.from_aurora_id] || 'star';
+            } else {
+                const profile = FAKE_PROFILES.find(p => p.id === l.from);
+                avatarId = profile ? profile.avatar : 'star';
+            }
+            const avatarData = AVATAR_ICONS.find(a => a.id === avatarId) || AVATAR_ICONS[0];
             const statusClass = l.status === 'new' ? 'status-new' : l.status === 'replied' ? 'status-replied' : 'status-read';
             const statusText = l.status === 'new' ? '新信件' : l.status === 'replied' ? '已回复' : '已读';
+            const fromName = l.isReal ? l.from_name : l.fromName;
             return `
-            <div class="letter-item ${l.status === 'new' ? 'unread' : ''}" data-read="${l.id}">
+            <div class="letter-item ${l.status === 'new' ? 'unread' : ''}" data-read="${l.id}" data-real="${l.isReal ? '1' : '0'}" data-type="received">
                 <div class="letter-item-header">
                     <div class="letter-item-avatar">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">${avatarData.svg}</svg>
                     </div>
-                    <span class="letter-item-name">${l.fromName}</span>
+                    <span class="letter-item-name">${escapeHTML(fromName)}</span>
                     <span class="letter-item-time">${formatTime(l.timestamp)}</span>
                 </div>
-                <p class="letter-item-preview">${l.content.slice(0, 60)}...</p>
+                <p class="letter-item-preview">${escapeHTML(l.content.slice(0, 60))}...</p>
                 <span class="letter-item-status ${statusClass}">${statusText}</span>
             </div>`;
         }).join('');
-
-        // 点击读信
-        inboxList.querySelectorAll('[data-read]').forEach(item => {
-            item.addEventListener('click', () => openLetterDetail(item.dataset.read, 'received'));
-        });
     }
 
-    // 已寄出
+    // ===== 已寄出 =====
     const sentList = document.getElementById('sentList');
     const sentEmpty = document.getElementById('sentEmpty');
-    if (sentLetters.length === 0) {
+    if (allSent.length === 0) {
         sentEmpty.style.display = 'block';
         sentList.innerHTML = '';
     } else {
         sentEmpty.style.display = 'none';
-        sentList.innerHTML = sentLetters.map(l => {
-            const profile = FAKE_PROFILES.find(p => p.id === l.to);
-            const avatarData = profile ? AVATAR_ICONS.find(a => a.id === profile.avatar) : AVATAR_ICONS[0];
+        sentList.innerHTML = allSent.map(l => {
+            let avatarId;
+            if (l.isReal) {
+                avatarId = avatarMap[l.to_aurora_id] || 'star';
+            } else {
+                const profile = FAKE_PROFILES.find(p => p.id === l.to);
+                avatarId = profile ? profile.avatar : 'star';
+            }
+            const avatarData = AVATAR_ICONS.find(a => a.id === avatarId) || AVATAR_ICONS[0];
             const statusText = l.status === 'sent' ? '已寄出' : l.status === 'delivered' ? '已送达' : '对方已回复';
             const statusClass = l.status === 'replied' ? 'status-replied' : 'status-read';
+            const toName = l.isReal ? l.to_name : l.toName;
             return `
-            <div class="letter-item" data-read-sent="${l.id}">
+            <div class="letter-item" data-read="${l.id}" data-real="${l.isReal ? '1' : '0'}" data-type="sent">
                 <div class="letter-item-header">
                     <div class="letter-item-avatar">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">${avatarData.svg}</svg>
                     </div>
-                    <span class="letter-item-name">${l.toName}</span>
+                    <span class="letter-item-name">${escapeHTML(toName)}</span>
                     <span class="letter-item-time">${formatTime(l.timestamp)}</span>
                 </div>
-                <p class="letter-item-preview">${l.content.slice(0, 60)}...</p>
+                <p class="letter-item-preview">${escapeHTML(l.content.slice(0, 60))}...</p>
                 <span class="letter-item-status ${statusClass}">${statusText}</span>
             </div>`;
         }).join('');
-
-        sentList.querySelectorAll('[data-read-sent]').forEach(item => {
-            item.addEventListener('click', () => openLetterDetail(item.dataset.readSent, 'sent'));
-        });
     }
+
+    // 统一的点击读信处理
+    inboxList.querySelectorAll('[data-read]').forEach(item => {
+        item.addEventListener('click', () => {
+            const id = item.dataset.read;
+            const isReal = item.dataset.real === '1';
+            const type = item.dataset.type;
+            openLetterDetail(id, type, isReal);
+        });
+    });
+    sentList.querySelectorAll('[data-read]').forEach(item => {
+        item.addEventListener('click', () => {
+            const id = item.dataset.read;
+            const isReal = item.dataset.real === '1';
+            const type = item.dataset.type;
+            openLetterDetail(id, type, isReal);
+        });
+    });
 }
 
-function openLetterDetail(letterId, type) {
-    const letters = type === 'received' ? receivedLetters : sentLetters;
-    const letter = letters.find(l => l.id === letterId);
+function openLetterDetail(letterId, type, isReal) {
+    let letter;
+    if (isReal) {
+        const arr = type === 'received' ? sbReceivedLetters : sbSentLetters;
+        letter = arr.find(l => l.id === letterId);
+    } else {
+        const arr = type === 'received' ? receivedLetters : sentLetters;
+        letter = arr.find(l => l.id === letterId);
+    }
     if (!letter) return;
 
     const isReceived = type === 'received';
-    const otherId = isReceived ? letter.from : letter.to;
-    const profile = FAKE_PROFILES.find(p => p.id === otherId);
-    const avatarData = profile ? AVATAR_ICONS.find(a => a.id === profile.avatar) : AVATAR_ICONS[0];
+    let otherName, otherId, avatarId;
 
-    document.getElementById('detailTitle').textContent = isReceived ? `来自 ${letter.fromName}` : `寄给 ${letter.toName}`;
-    document.getElementById('detailContent').innerHTML = `
-        <div class="letter-detail-sender">
-            <div class="letter-item-avatar">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">${avatarData.svg}</svg>
-            </div>
-            <div>
-                <span class="letter-item-name">${isReceived ? letter.fromName : letter.toName}</span>
-                ${profile ? `<span class="profile-card-mbti" style="margin-left:8px;">${profile.mbti}</span>` : ''}
-            </div>
-        </div>
-        <p class="letter-detail-body">${letter.content}</p>
-        <p class="letter-detail-time">${formatTime(letter.timestamp)}</p>
-        ${isReceived && letter.status === 'new' ? `
-            <div class="letter-detail-actions">
-                <button class="btn-accept" data-accept="${letter.id}">接受并回复</button>
-            </div>
-        ` : ''}
-    `;
-
-    // 标记为已读
-    if (isReceived && letter.status === 'new') {
-        letter.status = 'read';
-        saveData(LETTERS_RECEIVED_KEY, receivedLetters);
+    if (letter.isReal) {
+        otherName = isReceived ? letter.from_name : letter.to_name;
+        otherId = isReceived ? letter.from_aurora_id : letter.to_aurora_id;
+        avatarId = 'star'; // 默认，后面可以从 profiles 查
+    } else {
+        otherId = isReceived ? letter.from : letter.to;
+        otherName = isReceived ? letter.fromName : letter.toName;
+        const profile = FAKE_PROFILES.find(p => p.id === otherId);
+        avatarId = profile ? profile.avatar : 'star';
     }
 
-    document.getElementById('letterDetailModal').classList.add('open');
+    const avatarData = AVATAR_ICONS.find(a => a.id === avatarId) || AVATAR_ICONS[0];
 
-    // 接受按钮
-    const acceptBtn = document.getElementById('detailContent').querySelector('[data-accept]');
-    if (acceptBtn) {
-        acceptBtn.addEventListener('click', () => {
-            letter.status = 'replied';
-            saveData(LETTERS_RECEIVED_KEY, receivedLetters);
-            // 再次生成回复
-            const sentLetter = sentLetters.find(l => l.id === letter.replyToId);
-            if (sentLetter) {
-                setTimeout(() => generateReply(sentLetter), 5000);
+    // 异步加载真实用户的头像
+    function renderDetail(finalAvatarId) {
+        const finalAvatarData = AVATAR_ICONS.find(a => a.id === finalAvatarId) || AVATAR_ICONS[0];
+        document.getElementById('detailTitle').textContent = isReceived ? `来自 ${otherName}` : `寄给 ${otherName}`;
+        document.getElementById('detailContent').innerHTML = `
+            <div class="letter-detail-sender">
+                <div class="letter-item-avatar">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">${finalAvatarData.svg}</svg>
+                </div>
+                <div>
+                    <span class="letter-item-name">${escapeHTML(otherName)}</span>
+                    ${otherId.startsWith('AL-') ? `<span class="profile-card-mbti" style="margin-left:8px;">ID: ${escapeHTML(otherId)}</span>` : ''}
+                </div>
+            </div>
+            <p class="letter-detail-body">${escapeHTML(letter.content)}</p>
+            <p class="letter-detail-time">${formatTime(letter.timestamp)}</p>
+            ${isReceived && letter.status === 'new' ? `
+                <div class="letter-detail-actions">
+                    <button class="btn-accept" data-accept="${letter.id}" data-real="${letter.isReal ? '1' : '0'}">回复</button>
+                </div>
+            ` : ''}
+        `;
+
+        // 标记为已读
+        if (isReceived && letter.status === 'new') {
+            letter.status = 'read';
+            if (letter.isReal) {
+                sb.from('received_letters').update({ status: 'read' }).eq('id', letter.id).then();
+            } else {
+                saveData(LETTERS_RECEIVED_KEY, receivedLetters);
             }
-            showToast('已接受！对方很快会回信 💌');
-            document.getElementById('letterDetailModal').classList.remove('open');
-            renderLetters();
+        }
+
+        document.getElementById('letterDetailModal').classList.add('open');
+
+        // 回复按钮
+        const acceptBtn = document.getElementById('detailContent').querySelector('[data-accept]');
+        if (acceptBtn) {
+            acceptBtn.addEventListener('click', () => {
+                document.getElementById('letterDetailModal').classList.remove('open');
+                // 打开写信弹窗，预填收件人
+                document.getElementById('composeRecipient').innerHTML = `<option value="${otherId}">${otherName}</option>`;
+                document.getElementById('composeContent').value = '';
+                document.getElementById('composeCount').textContent = '0';
+                document.getElementById('composeError').textContent = '';
+                document.getElementById('btnSendLetter').disabled = true;
+                document.getElementById('composeTitle').textContent = `回复 ${otherName}`;
+                document.getElementById('composeModal').classList.add('open');
+            });
+        }
+    }
+
+    // 真实用户：尝试从 Supabase 获取头像
+    if (letter.isReal) {
+        sb.from('profiles').select('avatar').eq('aurora_id', otherId).maybeSingle().then(({ data }) => {
+            renderDetail(data ? data.avatar : 'star');
         });
+    } else {
+        renderDetail(avatarId);
     }
 }
 
@@ -1191,14 +1361,14 @@ document.getElementById('composeContent').addEventListener('input', function() {
 });
 
 // 发送信件
-document.getElementById('btnSendLetter').addEventListener('click', () => {
+document.getElementById('btnSendLetter').addEventListener('click', async () => {
     const to = document.getElementById('composeRecipient').value;
     const content = document.getElementById('composeContent').value.trim();
     if (content.length < 10) {
         document.getElementById('composeError').textContent = '至少写10个字哦';
         return;
     }
-    sendLetter(to, content);
+    await sendLetter(to, content);
     document.getElementById('composeModal').classList.remove('open');
     showToast('你的信已乘着极光出发了 ✨');
     renderLetters();
