@@ -729,8 +729,8 @@ document.getElementById('btnNameDone').addEventListener('click', async () => {
     const age = parseInt(document.getElementById('inputAge').value);
 
     // 检查名字是否已被使用
-    const { data: existing } = await sb.from('profiles').select('name').ilike('name', name).maybeSingle();
-    if (existing) {
+    const { data: existing } = await sb.from('profiles').select('name').eq('name', name);
+    if (existing && existing.length > 0) {
         document.getElementById('nameError').textContent = '这个名字已被使用，换一个吧';
         return;
     }
