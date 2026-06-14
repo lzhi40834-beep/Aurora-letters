@@ -2196,6 +2196,7 @@ input, textarea, select { font-family: var(--font-body); }
 
 /* 好友卡片 */
 .friend-card {
+    position: relative;
     background: var(--color-bg-card);
     border-radius: var(--radius-md);
     padding: 20px;
@@ -2207,6 +2208,57 @@ input, textarea, select { font-family: var(--font-body); }
 .friend-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(212, 165, 165, 0.1);
+}
+
+/* 删除好友按钮 */
+.friend-delete-btn {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 0.9rem;
+    color: #C0B5B5;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s, background 0.2s;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+.friend-delete-btn:hover {
+    color: #C49595;
+    background: rgba(212, 165, 165, 0.08);
+}
+
+/* 好友备注输入框 */
+.friend-note-input {
+    width: 100%;
+    text-align: center;
+    border: none;
+    border-bottom: 1px solid #F0EBE5;
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: var(--color-text-secondary);
+    padding: 4px 0;
+    margin-bottom: 10px;
+    outline: none;
+    letter-spacing: 0.03em;
+    transition: border-color 0.2s;
+}
+
+.friend-note-input:focus {
+    border-bottom-color: #D4A5A5;
+}
+
+.friend-note-input::placeholder {
+    color: #D8CFCF;
 }
 
 .friend-avatar {

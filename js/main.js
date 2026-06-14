@@ -727,6 +727,14 @@ document.getElementById('btnNameDone').addEventListener('click', async () => {
     }
     document.getElementById('nameError').textContent = '';
     const age = parseInt(document.getElementById('inputAge').value);
+
+    // 检查名字是否已被使用
+    const { data: existing } = await sb.from('profiles').select('name').ilike('name', name).maybeSingle();
+    if (existing) {
+        document.getElementById('nameError').textContent = '这个名字已被使用，换一个吧';
+        return;
+    }
+
     // 生成唯一极光ID
     const auroraId = 'AL-' + Math.random().toString(36).slice(2, 6).toUpperCase();
     const user = { name, age, avatar: selectedAvatar, auroraId, mbti: null, mbtiCompleted: false };
@@ -2122,6 +2130,7 @@ async function renderFriends(searchTerm = '') {
     empty.style.display = 'none';
     grid.innerHTML = friends.map(f => `
         <div class="friend-card">
+            <button class="friend-delete-btn" data-delete="${f.friend_aurora_id}" data-name="${escapeHTML(f.friend_name)}" title="删除好友">&times;</button>
             <div class="friend-avatar">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
                     ${getAvatarSVG(f.friend_avatar)}
@@ -2129,6 +2138,7 @@ async function renderFriends(searchTerm = '') {
             </div>
             <div class="friend-name">${escapeHTML(f.friend_name)}</div>
             <div class="friend-met-at">在 ${escapeHTML(f.location_name)} 相遇</div>
+            <input class="friend-note-input" data-note="${f.friend_aurora_id}" value="${escapeHTML(f.note || '')}" placeholder="添加备注..." maxlength="20">
             <div class="friend-actions">
                 <button class="btn-sm btn-sm-outline" data-action="profile" data-friend="${f.friend_name}">查看</button>
                 <button class="btn-sm btn-sm-primary" data-action="letter" data-friend="${f.friend_name}">写信</button>
@@ -2136,7 +2146,7 @@ async function renderFriends(searchTerm = '') {
         </div>
     `).join('');
 
-    // 按钮事件
+    // 写信按钮
     grid.querySelectorAll('[data-action="letter"]').forEach(btn => {
         btn.addEventListener('click', () => {
             const friendName = btn.dataset.friend;
@@ -2153,9 +2163,36 @@ async function renderFriends(searchTerm = '') {
         });
     });
 
+    // 查看按钮
     grid.querySelectorAll('[data-action="profile"]').forEach(btn => {
         btn.addEventListener('click', () => {
             showToast(`${btn.dataset.friend} 的个人主页`);
+        });
+    });
+
+    // 删除好友
+    grid.querySelectorAll('[data-delete]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!confirm(`确定删除好友 ${btn.dataset.name} 吗？`)) return;
+            const user = loadData(STORAGE_KEY);
+            await sb.from('friends').delete().eq('user_aurora_id', user.auroraId).eq('friend_aurora_id', btn.dataset.delete);
+            await sb.from('friends').delete().eq('user_aurora_id', btn.dataset.delete).eq('friend_aurora_id', user.auroraId);
+            renderFriends();
+            showToast('已删除好友');
+        });
+    });
+
+    // 备注保存
+    grid.querySelectorAll('.friend-note-input').forEach(input => {
+        let saveTimer;
+        input.addEventListener('input', () => {
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(async () => {
+                const user = loadData(STORAGE_KEY);
+                await sb.from('friends').update({ note: input.value })
+                    .eq('user_aurora_id', user.auroraId)
+                    .eq('friend_aurora_id', input.dataset.note);
+            }, 600);
         });
     });
 }
