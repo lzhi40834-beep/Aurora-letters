@@ -4,8 +4,14 @@
    ============================================================ */
 
 // ============================================================
-// 0. localStorage 工具
+// 0. Supabase 客户端
 // ============================================================
+const SUPABASE_URL = 'https://huxxnrwedtugyhqvpxzx.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh1eHhucndlZHR1Z3locXZweHp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE0MjI5NjYsImV4cCI6MjA5Njk5ODk2Nn0.-tuIYvAOnEfll_yz-n02sEc8jphHvyLv44db39so10A';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ============================================================
+// 1. localStorage 工具（仅用于当前用户会话）
 const STORAGE_KEY = 'aurora_user';
 const LETTERS_SENT_KEY = 'aurora_sentLetters';
 const LETTERS_RECEIVED_KEY = 'aurora_receivedLetters';
@@ -713,7 +719,7 @@ document.getElementById('btnNameBack').addEventListener('click', () => {
 });
 
 // 步骤3 → 完成
-document.getElementById('btnNameDone').addEventListener('click', () => {
+document.getElementById('btnNameDone').addEventListener('click', async () => {
     const name = document.getElementById('inputName').value.trim();
     if (!name) {
         document.getElementById('nameError').textContent = '请输入你的名字或昵称';
@@ -724,26 +730,22 @@ document.getElementById('btnNameDone').addEventListener('click', () => {
     // 生成唯一极光ID
     const auroraId = 'AL-' + Math.random().toString(36).slice(2, 6).toUpperCase();
     const user = { name, age, avatar: selectedAvatar, auroraId, mbti: null, mbtiCompleted: false };
+
+    // 保存到 Supabase
+    const { error } = await sb.from('profiles').insert({
+        name, age, avatar: selectedAvatar, aurora_id: auroraId
+    });
+    if (error) {
+        document.getElementById('nameError').textContent = '注册失败，请重试';
+        console.error('Supabase insert error:', error);
+        return;
+    }
+
+    // 本地存会话
     saveData(STORAGE_KEY, user);
-    // 存入用户注册表
-    registerUserInDirectory(user);
-    // 更新导航栏用户信息
     updateNavUser();
-    // 显示欢迎弹窗
     document.getElementById('welcomeModal').classList.add('open');
 });
-
-// 用户注册表（同设备可搜索）
-function registerUserInDirectory(user) {
-    const directory = loadData('aurora_user_directory', []);
-    const idx = directory.findIndex(u => u.name === user.name);
-    if (idx >= 0) {
-        directory[idx] = { name: user.name, auroraId: user.auroraId, avatar: user.avatar, age: user.age };
-    } else {
-        directory.push({ name: user.name, auroraId: user.auroraId, avatar: user.avatar, age: user.age });
-    }
-    saveData('aurora_user_directory', directory);
-}
 
 // Enter 键支持：输入框回车自动下一步
 document.getElementById('inputAge').addEventListener('keydown', (e) => {
@@ -796,7 +798,7 @@ function renderHome() {
 }
 
 // 个人主页渲染
-function renderProfile() {
+async function renderProfile() {
     const user = loadData(STORAGE_KEY);
     if (!user) { switchView('register'); return; }
 
@@ -823,9 +825,9 @@ function renderProfile() {
         document.getElementById('profileMbtiDone').style.display = 'none';
     }
 
-    // 日记
-    loadDiary();
-    const myDiary = diaryEntries.sort((a, b) => b.createdAt - a.createdAt).slice(0, 3);
+    // 日记（从 Supabase）
+    await loadDiary();
+    const myDiary = diaryEntries.slice(0, 3);
     document.getElementById('profileDiaryCount').textContent = diaryEntries.length > 0 ? `${diaryEntries.length}篇` : '';
     document.getElementById('profileDiaryList').innerHTML = myDiary.length > 0
         ? myDiary.map(d => `
@@ -853,19 +855,21 @@ function renderProfile() {
         }).join('')
         : '<p class="profile-mini-empty">还没有寄出过信</p>';
 
-    // 捡到的漂流信
-    loadDriftLetters();
-    const userDriftFinds = driftLetters.filter(d => d.foundBy.includes(user.name));
-    document.getElementById('profileDriftCount').textContent = userDriftFinds.length > 0 ? `${userDriftFinds.length}封` : '';
-    document.getElementById('profileDriftList').innerHTML = userDriftFinds.length > 0
-        ? userDriftFinds.slice(-3).reverse().map(d => {
-            const loc = LOCATIONS.find(l => l.id === d.locationId);
+    // 捡到的漂流信（从 Supabase）
+    const { data: userDriftFinds } = await sb.from('drift_letters').select('*')
+        .contains('found_by', [user.name])
+        .order('created_at', { ascending: false })
+        .limit(3);
+    document.getElementById('profileDriftCount').textContent = (userDriftFinds && userDriftFinds.length > 0) ? `${userDriftFinds.length}封` : '';
+    document.getElementById('profileDriftList').innerHTML = (userDriftFinds && userDriftFinds.length > 0)
+        ? userDriftFinds.map(d => {
+            const loc = LOCATIONS.find(l => l.id === d.location_id);
             return `
             <div class="profile-mini-item">
                 <span class="profile-mini-item-icon">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
                 </span>
-                <span class="profile-mini-item-text">${loc ? loc.name : ''} · 来自 ${escapeHTML(d.userName)}</span>
+                <span class="profile-mini-item-text">${loc ? loc.name : ''} · 来自 ${escapeHTML(d.user_name)}</span>
             </div>`;
         }).join('')
         : '<p class="profile-mini-empty">还没有捡到漂流信</p>';
@@ -1328,12 +1332,13 @@ function calculateMbti() {
         </div>`;
     }).join('');
 
-    // 保存
+    // 保存到 localStorage + Supabase
     const user = loadData(STORAGE_KEY);
     if (user) {
         user.mbti = type;
         user.mbtiCompleted = true;
         saveData(STORAGE_KEY, user);
+        sb.from('profiles').update({ mbti: type, mbti_completed: true }).eq('aurora_id', user.auroraId).then();
     }
 }
 
@@ -1396,13 +1401,18 @@ let diaryEntries = [];
 let diaryPhotos = [];       // 当前编辑中的照片（base64数组）
 let editingDiaryId = null;  // 正在编辑的日记ID
 
-function loadDiary() {
-    diaryEntries = loadData(DIARY_KEY, []);
+async function loadDiary() {
+    const user = loadData(STORAGE_KEY);
+    if (!user) { diaryEntries = []; return; }
+    const { data } = await sb.from('diary_entries').select('*').eq('user_aurora_id', user.auroraId).order('created_at', { ascending: false });
+    diaryEntries = (data || []).map(d => ({
+        id: d.id, title: d.title, content: d.content, photos: d.photos,
+        isPublic: d.is_public, createdAt: new Date(d.created_at).getTime(),
+        updatedAt: new Date(d.updated_at).getTime()
+    }));
 }
 
-function saveDiary() {
-    saveData(DIARY_KEY, diaryEntries);
-}
+function saveDiary() {} // deprecated, using Supabase directly
 
 // 照片压缩：限制最大宽度800px，质量0.65
 function compressPhoto(file) {
@@ -1428,8 +1438,8 @@ function compressPhoto(file) {
 }
 
 // 渲染日记列表
-function renderDiary() {
-    loadDiary();
+async function renderDiary() {
+    await loadDiary();
     const grid = document.getElementById('diaryGrid');
     const empty = document.getElementById('diaryEmpty');
     if (!grid || !empty) return;
@@ -1561,7 +1571,7 @@ function renderDiaryPhotoPreviews() {
 }
 
 // 保存日记
-function saveDiaryEntry() {
+async function saveDiaryEntry() {
     const title = document.getElementById('diaryTitle').value.trim();
     const content = document.getElementById('diaryContent').value.trim();
     const isPublic = document.querySelector('.privacy-option.active').dataset.privacy === 'public';
@@ -1572,41 +1582,27 @@ function saveDiaryEntry() {
     }
     document.getElementById('diaryError').textContent = '';
 
-    loadDiary();
+    const user = loadData(STORAGE_KEY);
+    if (!user) { showToast('请先注册'); return; }
 
     if (editingDiaryId) {
-        // 编辑
-        const entry = diaryEntries.find(e => e.id === editingDiaryId);
-        if (entry) {
-            entry.title = title;
-            entry.content = content;
-            entry.photos = [...diaryPhotos];
-            entry.isPublic = isPublic;
-            entry.updatedAt = Date.now();
-        }
+        await sb.from('diary_entries').update({
+            title, content, photos: diaryPhotos, is_public: isPublic, updated_at: new Date().toISOString()
+        }).eq('id', editingDiaryId).eq('user_aurora_id', user.auroraId);
     } else {
-        // 新建
-        const entry = {
-            id: 'd_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-            title: title,
-            content: content,
-            photos: [...diaryPhotos],
-            isPublic: isPublic,
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-        };
-        diaryEntries.push(entry);
+        await sb.from('diary_entries').insert({
+            user_aurora_id: user.auroraId, title, content, photos: diaryPhotos, is_public: isPublic
+        });
     }
 
-    saveDiary();
     closeDiaryWrite();
     renderDiary();
     showToast('日记已保存');
 }
 
 // 打开日记详情
-function openDiaryDetail(id) {
-    loadDiary();
+async function openDiaryDetail(id) {
+    await loadDiary();
     const entry = diaryEntries.find(e => e.id === id);
     if (!entry) return;
 
@@ -1636,10 +1632,10 @@ function openDiaryDetail(id) {
     });
 
     // 删除按钮
-    document.getElementById('btnDeleteDiary').addEventListener('click', () => {
+    document.getElementById('btnDeleteDiary').addEventListener('click', async () => {
         if (confirm('确定删除这篇日记吗？')) {
-            diaryEntries = diaryEntries.filter(e => e.id !== id);
-            saveDiary();
+            const user = loadData(STORAGE_KEY);
+            await sb.from('diary_entries').delete().eq('id', id).eq('user_aurora_id', user.auroraId);
             document.getElementById('diaryDetailModal').classList.remove('open');
             renderDiary();
             showToast('日记已删除');
@@ -1845,23 +1841,30 @@ const LOCATION_PHOTOS = {
     'ilulissat':        'https://loremflickr.com/640/380/ilulissat,greenland,iceberg',
 };
 
-function loadDriftLetters() { driftLetters = loadData(DRIFT_KEY, []); }
-function saveDriftLetters() { saveData(DRIFT_KEY, driftLetters); }
-function loadFriends() { friends = loadData(FRIENDS_KEY, []); }
-function saveFriends() { saveData(FRIENDS_KEY, friends); }
+async function loadDriftLetters() {
+    const { data } = await sb.from('drift_letters').select('*').order('created_at', { ascending: false });
+    driftLetters = data || [];
+}
+function loadFriends() {} // deprecated, using Supabase directly
+function saveFriends() {} // deprecated
 
 // 渲染地图标记点
-function renderMapPins() {
-    loadDriftLetters();
+async function renderMapPins() {
+    await loadDriftLetters();
     const pinsGroup = document.getElementById('mapPins');
     if (!pinsGroup) return;
 
-    // 设置地图页诗句
     const quoteEl = document.getElementById('mapQuote');
     if (quoteEl) quoteEl.textContent = getRandomQuote();
 
+    // 统计每个地点的信件数
+    const counts = {};
+    driftLetters.forEach(d => {
+        counts[d.location_id] = (counts[d.location_id] || 0) + 1;
+    });
+
     pinsGroup.innerHTML = LOCATIONS.map(loc => {
-        const count = driftLetters.filter(d => d.locationId === loc.id).length;
+        const count = counts[loc.id] || 0;
         const badgeHTML = count > 0
             ? `<text x="${loc.x}" y="${loc.y - 18}" class="map-pin-badge">${count}封</text>`
             : '';
@@ -1876,7 +1879,6 @@ function renderMapPins() {
         `;
     }).join('');
 
-    // 点击事件
     pinsGroup.querySelectorAll('.map-pin').forEach(pin => {
         pin.addEventListener('click', () => {
             openLocation(pin.dataset.location);
@@ -1885,8 +1887,7 @@ function renderMapPins() {
 }
 
 // 打开地点详情
-function openLocation(locationId) {
-    loadDriftLetters();
+async function openLocation(locationId) {
     currentLocationId = locationId;
     const loc = LOCATIONS.find(l => l.id === locationId);
     if (!loc) return;
@@ -1896,7 +1897,6 @@ function openLocation(locationId) {
     // 氛围卡片（真实照片背景 + CSS渐变作为fallback）
     const atmosphereEl = document.getElementById('locationAtmosphere');
     atmosphereEl.className = 'location-atmosphere atmo-' + (loc.atmosphere || 'fjord');
-    // 用真实照片覆盖背景
     const photoUrl = LOCATION_PHOTOS[loc.id];
     if (photoUrl) {
         atmosphereEl.style.backgroundImage = `url(${photoUrl})`;
@@ -1906,27 +1906,26 @@ function openLocation(locationId) {
     document.getElementById('locationAtmosphereLabel').textContent = loc.name;
     document.getElementById('locationCountryTag').textContent = loc.country || '';
 
-    // 诗意描述
     document.getElementById('locationDesc').textContent = loc.desc;
-
-    // 地理知识
     document.getElementById('locationFacts').textContent = loc.facts || '';
 
-    // 漂流信
-    const locLetters = driftLetters.filter(d => d.locationId === locationId);
-    document.getElementById('locationLetterCount').textContent =
-        locLetters.length > 0 ? `这里有 ${locLetters.length} 封漂流信` : '这里还没有信，做第一个投信的人吧';
+    // 从 Supabase 拉取该地点的漂流信
+    const { data: locLetters } = await sb.from('drift_letters').select('*')
+        .eq('location_id', locationId).order('created_at', { ascending: false });
 
-    // 显示最近的几封信
+    const count = locLetters ? locLetters.length : 0;
+    document.getElementById('locationLetterCount').textContent =
+        count > 0 ? `这里有 ${count} 封漂流信` : '这里还没有信，做第一个投信的人吧';
+
     const lettersDiv = document.getElementById('locationLetters');
-    if (locLetters.length === 0) {
+    if (count === 0) {
         lettersDiv.innerHTML = '';
     } else {
-        const recent = locLetters.slice(-4).reverse();
+        const recent = locLetters.slice(0, 4);
         lettersDiv.innerHTML = recent.map(l => `
             <div class="drift-letter">
                 <div class="drift-letter-preview">${escapeHTML(l.content.slice(0, 60))}...</div>
-                <div class="drift-letter-time">${timeAgo(l.createdAt)}</div>
+                <div class="drift-letter-time">${timeAgo(new Date(l.created_at).getTime())}</div>
             </div>
         `).join('');
     }
@@ -1953,7 +1952,7 @@ function openDropLetter() {
 }
 
 // 确认投信
-function confirmDropLetter() {
+async function confirmDropLetter() {
     const content = document.getElementById('dropContent').value.trim();
     if (!content) {
         document.getElementById('dropError').textContent = '请写下你想说的话';
@@ -1964,42 +1963,39 @@ function confirmDropLetter() {
     const user = loadData(STORAGE_KEY);
     const userName = user ? user.name : '匿名旅人';
     const userAvatar = user ? user.avatar : 'star';
+    const userAuroraId = user ? user.auroraId : '';
 
-    loadDriftLetters();
-    const letter = {
-        id: 'drift_' + Date.now(),
-        locationId: currentLocationId,
-        userName: userName,
-        userAvatar: userAvatar,
-        content: content,
-        createdAt: Date.now(),
-        foundBy: [],
-        replies: []
-    };
-    driftLetters.push(letter);
-    saveDriftLetters();
+    await sb.from('drift_letters').insert({
+        location_id: currentLocationId,
+        user_aurora_id: userAuroraId,
+        user_name: userName,
+        user_avatar: userAvatar,
+        content: content
+    });
 
     document.getElementById('dropLetterModal').classList.remove('open');
     renderMapPins();
     showToast('信已投入大海，等待有缘人发现');
 }
 
-// 捞一封信 — 随机找到同一地点别人的信
-function findRandomLetter() {
+// 捞一封信 — 随机找到同一地点别人的信（Supabase）
+async function findRandomLetter() {
     if (!currentLocationId) return;
-    loadDriftLetters();
 
     const user = loadData(STORAGE_KEY);
     const userName = user ? user.name : '匿名旅人';
+    const userAuroraId = user ? user.auroraId : '';
 
-    // 找同一地点、不是自己写的、还没被自己找到过的信
-    const candidates = driftLetters.filter(d =>
-        d.locationId === currentLocationId &&
-        d.userName !== userName &&
-        !d.foundBy.includes(userName)
+    // 从 Supabase 找同一地点、不是自己写的信，然后 JS 过滤已找到的
+    const { data: allLetters } = await sb.from('drift_letters').select('*')
+        .eq('location_id', currentLocationId)
+        .neq('user_aurora_id', userAuroraId);
+
+    const candidates = (allLetters || []).filter(l =>
+        !(l.found_by || []).includes(userName)
     );
 
-    if (candidates.length === 0) {
+    if (!candidates || candidates.length === 0) {
         showToast('这里还没有其他人的信，换个地点试试吧');
         return;
     }
@@ -2009,8 +2005,8 @@ function findRandomLetter() {
     currentReadLetter = letter;
 
     // 标记为已找到
-    letter.foundBy.push(userName);
-    saveDriftLetters();
+    const updatedFoundBy = [...(letter.found_by || []), userName];
+    await sb.from('drift_letters').update({ found_by: updatedFoundBy }).eq('id', letter.id);
 
     // 显示读信弹窗
     const loc = LOCATIONS.find(l => l.id === currentLocationId);
@@ -2018,12 +2014,12 @@ function findRandomLetter() {
         <div class="read-letter-header">
             <div class="read-letter-avatar">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-                    ${getAvatarSVG(letter.userAvatar)}
+                    ${getAvatarSVG(letter.user_avatar)}
                 </svg>
             </div>
             <div>
-                <div class="read-letter-from">${escapeHTML(letter.userName)}</div>
-                <div class="read-letter-location">${loc ? loc.name : ''} · ${timeAgo(letter.createdAt)}</div>
+                <div class="read-letter-from">${escapeHTML(letter.user_name)}</div>
+                <div class="read-letter-location">${loc ? loc.name : ''} · ${timeAgo(new Date(letter.created_at).getTime())}</div>
             </div>
         </div>
         <div class="read-letter-body">${escapeHTML(letter.content)}</div>
@@ -2037,55 +2033,44 @@ function findRandomLetter() {
     document.getElementById('locationModal').classList.remove('open');
     document.getElementById('readLetterModal').classList.add('open');
 
-    // 换一封
     document.getElementById('btnSkipLetter').addEventListener('click', () => {
         document.getElementById('readLetterModal').classList.remove('open');
-        // 重新捞（但刚刚那封已经被标记了）
         openLocation(currentLocationId);
         setTimeout(() => findRandomLetter(), 300);
     });
 
-    // 回复 + 请求加好友
     document.getElementById('btnReplyLetter').addEventListener('click', () => {
         document.getElementById('readLetterModal').classList.remove('open');
-        addFriendFromLetter(letter);
+        addFriendFromLetter({ userName: letter.user_name, userAvatar: letter.user_avatar, user_aurora_id: letter.user_aurora_id, locationId: currentLocationId });
     });
 }
 
 // 从漂流信添加好友
-function addFriendFromLetter(letter) {
+async function addFriendFromLetter(letter) {
     const user = loadData(STORAGE_KEY);
     if (!user) {
         showToast('请先注册');
         return;
     }
 
-    loadFriends();
-
     // 检查是否已经是好友
-    const exists = friends.find(f =>
-        (f.userId === user.name && f.friendId === letter.userName) ||
-        (f.userId === letter.userName && f.friendId === user.name)
-    );
+    const { data: existing } = await sb.from('friends').select('*')
+        .eq('user_aurora_id', user.auroraId)
+        .eq('friend_aurora_id', letter.user_aurora_id || letter.userName)
+        .maybeSingle();
 
-    if (exists) {
+    if (existing) {
         showToast('你们已经是好友了');
         return;
     }
 
     const loc = LOCATIONS.find(l => l.id === letter.locationId);
-    const friend = {
-        id: 'f_' + Date.now(),
-        userId: user.name,
-        friendId: letter.userName,
-        friendName: letter.userName,
-        friendAvatar: letter.userAvatar,
-        locationName: loc ? loc.name : '',
-        createdAt: Date.now()
-    };
+    // 双向添加
+    await sb.from('friends').insert([
+        { user_aurora_id: user.auroraId, friend_aurora_id: letter.user_aurora_id || letter.userName, friend_name: letter.userName, friend_avatar: letter.userAvatar, location_name: loc ? loc.name : '' },
+        { user_aurora_id: letter.user_aurora_id || letter.userName, friend_aurora_id: user.auroraId, friend_name: user.name, friend_avatar: user.avatar, location_name: loc ? loc.name : '' }
+    ]);
 
-    friends.push(friend);
-    saveFriends();
     showToast(`已向 ${letter.userName} 发送好友请求！`);
 }
 
@@ -2110,38 +2095,40 @@ function timeAgo(ts) {
 // ============================================================
 // 17. 好友系统
 // ============================================================
-function renderFriends(searchTerm = '') {
-    loadFriends();
+async function renderFriends(searchTerm = '') {
+    const user = loadData(STORAGE_KEY);
+    if (!user) return;
+
     const grid = document.getElementById('friendGrid');
     const empty = document.getElementById('friendEmpty');
     if (!grid || !empty) return;
 
-    let filtered = friends;
+    // 从 Supabase 拉取好友列表
+    let query = sb.from('friends').select('*').eq('user_aurora_id', user.auroraId).order('created_at', { ascending: false });
     if (searchTerm) {
-        filtered = friends.filter(f =>
-            f.friendName.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+        query = query.ilike('friend_name', `%${searchTerm}%`);
     }
+    const { data: friends } = await query;
 
-    if (filtered.length === 0) {
+    if (!friends || friends.length === 0) {
         grid.innerHTML = '';
         empty.style.display = 'block';
         return;
     }
 
     empty.style.display = 'none';
-    grid.innerHTML = filtered.map(f => `
+    grid.innerHTML = friends.map(f => `
         <div class="friend-card">
             <div class="friend-avatar">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-                    ${getAvatarSVG(f.friendAvatar)}
+                    ${getAvatarSVG(f.friend_avatar)}
                 </svg>
             </div>
-            <div class="friend-name">${escapeHTML(f.friendName)}</div>
-            <div class="friend-met-at">在 ${escapeHTML(f.locationName)} 相遇</div>
+            <div class="friend-name">${escapeHTML(f.friend_name)}</div>
+            <div class="friend-met-at">在 ${escapeHTML(f.location_name)} 相遇</div>
             <div class="friend-actions">
-                <button class="btn-sm btn-sm-outline" data-action="profile" data-friend="${f.friendId}">查看</button>
-                <button class="btn-sm btn-sm-primary" data-action="letter" data-friend="${f.friendId}">写信</button>
+                <button class="btn-sm btn-sm-outline" data-action="profile" data-friend="${f.friend_name}">查看</button>
+                <button class="btn-sm btn-sm-primary" data-action="letter" data-friend="${f.friend_name}">写信</button>
             </div>
         </div>
     `).join('');
@@ -2150,19 +2137,10 @@ function renderFriends(searchTerm = '') {
     grid.querySelectorAll('[data-action="letter"]').forEach(btn => {
         btn.addEventListener('click', () => {
             const friendName = btn.dataset.friend;
-            // 先填充预设人物 + 确保好友在选项中
             const select = document.getElementById('composeRecipient');
             select.innerHTML = FAKE_PROFILES.map(p =>
                 `<option value="${p.id}" ${p.name === friendName ? 'selected' : ''}>${p.name} (${p.nameCN})</option>`
             ).join('');
-            const hasOption = Array.from(select.options).some(o => o.value === friendName);
-            if (!hasOption) {
-                const opt = document.createElement('option');
-                opt.value = friendName;
-                opt.textContent = friendName;
-                opt.selected = true;
-                select.appendChild(opt);
-            }
             document.getElementById('composeContent').value = '';
             document.getElementById('composeCount').textContent = '0';
             document.getElementById('composeError').textContent = '';
@@ -2174,14 +2152,7 @@ function renderFriends(searchTerm = '') {
 
     grid.querySelectorAll('[data-action="profile"]').forEach(btn => {
         btn.addEventListener('click', () => {
-            const friendName = btn.dataset.friend;
-            // 在假用户列表中查找
-            const profile = FAKE_PROFILES.find(p => p.name === friendName || p.nameCN === friendName);
-            if (profile) {
-                showToast(`${profile.nameCN || profile.name} — ${profile.bio}`);
-            } else {
-                showToast(`${friendName} 的个人主页`);
-            }
+            showToast(`${btn.dataset.friend} 的个人主页`);
         });
     });
 }
@@ -2218,8 +2189,8 @@ document.getElementById('friendSearch').addEventListener('input', (e) => {
     renderFriends(e.target.value);
 });
 
-// 添加好友
-document.getElementById('btnAddFriend').addEventListener('click', () => {
+// 添加好友 — 从 Supabase 搜索
+document.getElementById('btnAddFriend').addEventListener('click', async () => {
     const input = document.getElementById('addFriendInput').value.trim();
     const errorEl = document.getElementById('addFriendError');
     if (!input) {
@@ -2231,49 +2202,42 @@ document.getElementById('btnAddFriend').addEventListener('click', () => {
     const user = loadData(STORAGE_KEY);
     if (!user) { showToast('请先注册'); return; }
 
-    // 1. 先查本地用户注册表
-    const directory = loadData('aurora_user_directory', []);
-    const found = directory.find(u =>
-        (u.auroraId && u.auroraId.toUpperCase() === input.toUpperCase()) ||
-        (u.name && u.name.toLowerCase() === input.toLowerCase())
-    );
+    // 从 Supabase 搜索用户
+    const { data: found } = await sb.from('profiles').select('*')
+        .or(`aurora_id.eq.${input.toUpperCase()},name.ilike.%${input}%`)
+        .limit(5);
 
-    if (found && found.name === user.name) {
+    if (!found || found.length === 0) {
+        errorEl.textContent = '未找到该用户，请确认ID或名字';
+        return;
+    }
+
+    const target = found[0];
+    if (target.aurora_id === user.auroraId) {
         errorEl.textContent = '这是你自己的ID哦';
         return;
     }
 
-    loadFriends();
-
     // 检查是否已经是好友
-    if (found) {
-        const exists = friends.find(f => f.friendId === found.auroraId || f.friendName === found.name);
-        if (exists) {
-            errorEl.textContent = '已经是好友了';
-            return;
-        }
+    const { data: existing } = await sb.from('friends').select('*')
+        .eq('user_aurora_id', user.auroraId)
+        .eq('friend_aurora_id', target.aurora_id)
+        .maybeSingle();
+
+    if (existing) {
+        errorEl.textContent = '已经是好友了';
+        return;
     }
 
-    // 添加好友
-    const friendName = found ? found.name : input;
-    const friendAvatar = found ? found.avatar : 'star';
-    const friendAuroraId = found ? found.auroraId : (input.startsWith('AL-') ? input : null);
+    // 双向添加好友
+    await sb.from('friends').insert([
+        { user_aurora_id: user.auroraId, friend_aurora_id: target.aurora_id, friend_name: target.name, friend_avatar: target.avatar, location_name: '搜索添加' },
+        { user_aurora_id: target.aurora_id, friend_aurora_id: user.auroraId, friend_name: user.name, friend_avatar: user.avatar, location_name: '搜索添加' }
+    ]);
 
-    const newFriend = {
-        id: 'f_' + Date.now(),
-        userId: user.auroraId || user.name,
-        friendId: friendAuroraId || friendName,
-        friendName: friendName,
-        friendAvatar: friendAvatar,
-        locationName: '搜索添加',
-        createdAt: Date.now()
-    };
-
-    friends.push(newFriend);
-    saveFriends();
     document.getElementById('addFriendInput').value = '';
     renderFriends();
-    showToast(`已添加 ${friendName} 为好友！`);
+    showToast(`已添加 ${target.name} 为好友！`);
 });
 
 // ============================================================
