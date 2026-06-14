@@ -2282,6 +2282,13 @@ input, textarea, select { font-family: var(--font-body); }
     margin-bottom: 2px;
 }
 
+.friend-id-small {
+    font-size: 0.65rem;
+    color: #C0B5B5;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+}
+
 .friend-met-at {
     font-size: 0.7rem;
     color: #C0B5B5;

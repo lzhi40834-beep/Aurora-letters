@@ -2137,23 +2137,22 @@ async function renderFriends(searchTerm = '') {
                 </svg>
             </div>
             <div class="friend-name">${escapeHTML(f.friend_name)}</div>
+            <div class="friend-id-small">${escapeHTML(f.friend_aurora_id)}</div>
             <div class="friend-met-at">在 ${escapeHTML(f.location_name)} 相遇</div>
             <input class="friend-note-input" data-note="${f.friend_aurora_id}" value="${escapeHTML(f.note || '')}" placeholder="添加备注..." maxlength="20">
             <div class="friend-actions">
-                <button class="btn-sm btn-sm-outline" data-action="profile" data-friend="${f.friend_name}">查看</button>
-                <button class="btn-sm btn-sm-primary" data-action="letter" data-friend="${f.friend_name}">写信</button>
+                <button class="btn-sm btn-sm-outline" data-action="profile" data-friend="${f.friend_name}" data-friend-id="${escapeHTML(f.friend_aurora_id)}">查看</button>
+                <button class="btn-sm btn-sm-primary" data-action="letter" data-friend="${f.friend_name}" data-friend-id="${escapeHTML(f.friend_aurora_id)}">写信</button>
             </div>
         </div>
     `).join('');
 
-    // 写信按钮
+    // 写信按钮 — 直接写给真实好友
     grid.querySelectorAll('[data-action="letter"]').forEach(btn => {
         btn.addEventListener('click', () => {
             const friendName = btn.dataset.friend;
-            const select = document.getElementById('composeRecipient');
-            select.innerHTML = FAKE_PROFILES.map(p =>
-                `<option value="${p.id}" ${p.name === friendName ? 'selected' : ''}>${p.name} (${p.nameCN})</option>`
-            ).join('');
+            const friendId = btn.dataset.friendId;
+            document.getElementById('composeRecipient').innerHTML = `<option value="${friendId}">${friendName}</option>`;
             document.getElementById('composeContent').value = '';
             document.getElementById('composeCount').textContent = '0';
             document.getElementById('composeError').textContent = '';
