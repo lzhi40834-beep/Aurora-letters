@@ -1987,13 +1987,16 @@ async function findRandomLetter() {
     const userAuroraId = user ? user.auroraId : '';
 
     // 从 Supabase 找同一地点、不是自己写的信，然后 JS 过滤已找到的
-    const { data: allLetters } = await sb.from('drift_letters').select('*')
-        .eq('location_id', currentLocationId)
-        .neq('user_aurora_id', userAuroraId);
+    // 先查所有信（调试用）
+    const { data: allAtLoc } = await sb.from('drift_letters').select('*')
+        .eq('location_id', currentLocationId);
+    console.log('该地点全部信件:', allAtLoc, '当前用户auroraId:', userAuroraId);
 
-    const candidates = (allLetters || []).filter(l =>
-        !(l.found_by || []).includes(userName)
+    const candidates = (allAtLoc || []).filter(l =>
+        l.user_aurora_id !== userAuroraId && !(l.found_by || []).includes(userName)
     );
+
+    console.log('可捞的候选人:', candidates.length, '封');
 
     if (!candidates || candidates.length === 0) {
         showToast('这里还没有其他人的信，换个地点试试吧');
