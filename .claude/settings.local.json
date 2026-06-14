@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(open /Users/lili/Desktop/个人网页/index.html)"
+    ]
+  }
+}

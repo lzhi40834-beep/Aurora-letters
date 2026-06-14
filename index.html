@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极光信笺 — Aurora Letters</title>
+
+    <!-- Google Fonts: Cormorant Garamond (北欧诗意) + Noto Sans SC (韩系高级) + Inter (英文正文) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Inter:wght@300;400&family=Noto+Sans+KR:wght@300;400&family=Noto+Sans+SC:wght@300;400;500&family=Noto+Serif+KR:wght@300;400&family=Noto+Serif+SC:wght@300;400&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <!-- ==================== 导航栏（Landing/Register页面隐藏） ==================== -->
+    <nav class="nav" id="nav">
+        <div class="nav-container">
+            <!-- 最左：Logo + 英文名 -->
+            <div class="nav-left">
+                <a href="#" class="nav-logo" data-nav="landing">
+                    极光信笺<span class="nav-logo-en"> / Aurora Letters</span>
+                </a>
+            </div>
+
+            <button class="hamburger" id="hamburger" aria-label="菜单">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#" class="nav-link active" data-nav="home">首页</a></li>
+                <li><a href="#" class="nav-link" data-nav="map">地图</a></li>
+                <li><a href="#" class="nav-link" data-nav="friends">好友</a></li>
+                <li><a href="#" class="nav-link" data-nav="diary">日记</a></li>
+                <li><a href="#" class="nav-link" data-nav="mbti">MBTI</a></li>
+                <li><a href="#" class="nav-link" data-nav="profile">我的</a></li>
+            </ul>
+
+            <!-- 最右：用户信息 + 音量键 -->
+            <div class="nav-right">
+                <a href="#" class="nav-user" id="navUser" data-nav="profile" style="display:none;">
+                    <span class="nav-user-avatar" id="navUserAvatar"></span>
+                    <span class="nav-user-info">
+                        <span class="nav-user-name" id="navUserName"></span>
+                        <span class="nav-user-id" id="navUserId"></span>
+                    </span>
+                </a>
+                <button class="nav-audio-toggle" id="navAudioToggle" aria-label="音乐开关" title="背景音乐">
+                    <svg class="audio-icon-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                    </svg>
+                    <svg class="audio-icon-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                        <line x1="23" y1="9" x2="17" y2="15"/>
+                        <line x1="17" y1="9" x2="23" y2="15"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ==================== 所有视图容器 ==================== -->
+    <main id="app">
+
+        <!-- ① Landing 页 — 全屏极光 + CSS森林渐变 -->
+        <section class="view" id="view-landing" data-view="landing">
+            <canvas id="auroraCanvas"></canvas>
+            <div class="landing-overlay">
+                <!-- 玻璃拟态卡片 — 三语文字 -->
+                <div class="landing-text-card fade-in">
+                    <p class="landing-quote-en">
+                        Love is the resonance deep within the soul,<br>
+                        where even in silence, we can hear each other's heartbeats.
+                    </p>
+                    <span class="landing-separator" aria-hidden="true"></span>
+                    <p class="landing-quote-zh">
+                        爱是灵魂深处的共鸣，在静默中也能听见彼此心跳的声音。
+                    </p>
+                    <span class="landing-separator" aria-hidden="true"></span>
+                    <p class="landing-quote-ko">
+                        사랑은 영혼 깊은 곳의 울림,<br>
+                        침묵 속에서도 서로의 심장 소리를 들을 수 있습니다.
+                    </p>
+                </div>
+
+                <button class="btn-enter" id="btnEnter" data-action="enter">
+                    <span>进入</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </button>
+
+                <p class="landing-brand">极光信笺 / Aurora Letters</p>
+            </div>
+            <!-- 音符按钮 -->
+            <button class="audio-toggle" id="audioToggle" aria-label="音乐开关" title="打开声音">
+                <svg class="audio-icon-on" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                </svg>
+                <svg class="audio-icon-off" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <line x1="23" y1="9" x2="17" y2="15"/>
+                    <line x1="17" y1="9" x2="23" y2="15"/>
+                </svg>
+            </button>
+        </section>
+
+        <!-- ② 注册页 -->
+        <section class="view view-hidden" id="view-register" data-view="register">
+            <div class="view-container">
+                <!-- 步骤1: 年龄 -->
+                <div class="register-step" id="regStep1">
+                    <div class="step-indicator">
+                        <div class="step-dot-wrap active">
+                            <span class="step-dot-circle active">1</span>
+                            <span class="step-dot-label">年龄</span>
+                        </div>
+                        <span class="step-line"></span>
+                        <div class="step-dot-wrap">
+                            <span class="step-dot-circle">2</span>
+                            <span class="step-dot-label">形象</span>
+                        </div>
+                        <span class="step-line"></span>
+                        <div class="step-dot-wrap">
+                            <span class="step-dot-circle">3</span>
+                            <span class="step-dot-label">名字</span>
+                        </div>
+                    </div>
+                    <h2 class="view-title">先告诉我们你的年龄</h2>
+                    <p class="view-subtitle">First, tell us your age</p>
+                    <div class="input-group">
+                        <input type="number" id="inputAge" class="input-elegant" placeholder="输入年龄" min="16" max="120">
+                    </div>
+                    <p class="input-error" id="ageError"></p>
+                    <button class="btn-primary" id="btnAgeNext">下一步</button>
+                </div>
+
+                <!-- 步骤2: 头像 -->
+                <div class="register-step step-hidden" id="regStep2">
+                    <div class="step-indicator">
+                        <div class="step-dot-wrap">
+                            <span class="step-dot-circle done">1</span>
+                            <span class="step-dot-label">年龄</span>
+                        </div>
+                        <span class="step-line done"></span>
+                        <div class="step-dot-wrap active">
+                            <span class="step-dot-circle active">2</span>
+                            <span class="step-dot-label">形象</span>
+                        </div>
+                        <span class="step-line"></span>
+                        <div class="step-dot-wrap">
+                            <span class="step-dot-circle">3</span>
+                            <span class="step-dot-label">名字</span>
+                        </div>
+                    </div>
+                    <h2 class="view-title">选择一个代表你的形象</h2>
+                    <p class="view-subtitle">Choose an avatar</p>
+                    <div class="avatar-grid" id="avatarGrid">
+                        <!-- JS动态生成 -->
+                    </div>
+                    <div class="step-actions">
+                        <button class="btn-back" id="btnAvatarBack">上一步</button>
+                        <button class="btn-primary" id="btnAvatarNext" disabled>下一步</button>
+                    </div>
+                </div>
+
+                <!-- 步骤3: 名字 -->
+                <div class="register-step step-hidden" id="regStep3">
+                    <div class="step-indicator">
+                        <div class="step-dot-wrap">
+                            <span class="step-dot-circle done">1</span>
+                            <span class="step-dot-label">年龄</span>
+                        </div>
+                        <span class="step-line done"></span>
+                        <div class="step-dot-wrap">
+                            <span class="step-dot-circle done">2</span>
+                            <span class="step-dot-label">形象</span>
+                        </div>
+                        <span class="step-line done"></span>
+                        <div class="step-dot-wrap active">
+                            <span class="step-dot-circle active">3</span>
+                            <span class="step-dot-label">名字</span>
+                        </div>
+                    </div>
+                    <h2 class="view-title">你希望被怎样称呼？</h2>
+                    <p class="view-subtitle">What should we call you?</p>
+                    <div class="input-group">
+                        <input type="text" id="inputName" class="input-elegant" placeholder="输入名字或昵称" maxlength="12">
+                    </div>
+                    <p class="input-error" id="nameError"></p>
+                    <div class="step-actions">
+                        <button class="btn-back" id="btnNameBack">上一步</button>
+                        <button class="btn-primary" id="btnNameDone">完成，进入我的主页</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ③ 个人主页 -->
+        <section class="view view-hidden" id="view-home" data-view="home">
+            <div class="view-container">
+                <!-- 用户信息卡片 -->
+                <div class="home-profile fade-in">
+                    <div class="home-avatar" id="homeAvatar"></div>
+                    <h2 class="home-name" id="homeName">--</h2>
+                    <p class="home-age" id="homeAge"></p>
+                    <p class="home-aurora-id" id="homeAuroraId"></p>
+                    <!-- MBTI展示区 -->
+                    <div class="home-mbti" id="homeMbti">
+                        <div class="mbti-not-tested" id="mbtiNotTested">
+                            <p class="mbti-cta">Discover your inner landscape</p>
+                            <p class="mbti-cta-cn">探索你的内心风景</p>
+                            <button class="btn-primary" data-nav="mbti">开始 MBTI 测试</button>
+                        </div>
+                        <div class="mbti-result" id="mbtiResult" style="display:none;">
+                            <span class="mbti-type-large" id="mbtiTypeLarge">--</span>
+                            <span class="mbti-nickname" id="mbtiNickname"></span>
+                            <p class="mbti-desc-poetic" id="mbtiDescPoetic"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 快捷入口 -->
+                <div class="home-nav-grid fade-in">
+                    <button class="home-nav-card" data-nav="discover">
+                        <span class="hnc-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                        </span>
+                        <span class="hnc-title">发现</span>
+                        <span class="hnc-sub">遇见有趣的人</span>
+                    </button>
+                    <button class="home-nav-card" data-nav="letters">
+                        <span class="hnc-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        </span>
+                        <span class="hnc-title">极光信笺</span>
+                        <span class="hnc-sub">查看往来信件</span>
+                    </button>
+                    <button class="home-nav-card" data-nav="map">
+                        <span class="hnc-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+                        </span>
+                        <span class="hnc-title">北欧地图</span>
+                        <span class="hnc-sub">投下漂流信</span>
+                    </button>
+                    <button class="home-nav-card" data-nav="friends">
+                        <span class="hnc-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        </span>
+                        <span class="hnc-title">好友</span>
+                        <span class="hnc-sub">有缘人列表</span>
+                    </button>
+                    <button class="home-nav-card" data-nav="diary">
+                        <span class="hnc-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        </span>
+                        <span class="hnc-title">日记本</span>
+                        <span class="hnc-sub">记录每一天</span>
+                    </button>
+                    <button class="home-nav-card" data-nav="mbti">
+                        <span class="hnc-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </span>
+                        <span class="hnc-title">MBTI 测试</span>
+                        <span class="hnc-sub">探索你的内心风景</span>
+                    </button>
+                    <button class="home-nav-card" data-nav="register">
+                        <span class="hnc-icon">
+                            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        </span>
+                        <span class="hnc-title">编辑资料</span>
+                        <span class="hnc-sub">修改个人信息</span>
+                    </button>
+                </div>
+
+                <!-- 随机诗句 -->
+                <p class="poetic-quote fade-in" id="homeQuote"></p>
+            </div>
+        </section>
+
+        <!-- ④ MBTI 测试页 -->
+        <section class="view view-hidden" id="view-mbti" data-view="mbti">
+            <div class="view-container">
+                <!-- 开始界面 -->
+                <div class="mbti-intro" id="mbtiIntro">
+                    <h2 class="view-title">探索你的内心风景</h2>
+                    <p class="view-subtitle">Discover Your Inner Landscape</p>
+                    <p class="mbti-intro-desc">20个问题，走进你自己的森林。没有标准答案，只有真实的你。</p>
+                    <button class="btn-primary" id="btnStartMbti">开始测试</button>
+                </div>
+                <!-- 答题界面 -->
+                <div class="mbti-quiz" id="mbtiQuiz" style="display:none;">
+                    <div class="mbti-progress">
+                        <div class="mbti-progress-bar" id="mbtiProgressBar"></div>
+                    </div>
+                    <p class="mbti-progress-text" id="mbtiProgressText">1 / 20</p>
+                    <p class="mbti-question" id="mbtiQuestion"></p>
+                    <div class="mbti-options" id="mbtiOptions"></div>
+                </div>
+                <!-- 结果界面 -->
+                <div class="mbti-result-page" id="mbtiResultPage" style="display:none;">
+                    <span class="mbti-type-huge" id="mbtiTypeHuge"></span>
+                    <span class="mbti-nickname-lg" id="mbtiNicknameLg"></span>
+                    <p class="mbti-desc-long" id="mbtiDescLong"></p>
+                    <div class="mbti-dimensions" id="mbtiDimensions"></div>
+                    <button class="btn-primary" id="btnSaveMbti">保存并返回主页</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ④ 日记本 -->
+        <section class="view view-hidden" id="view-diary" data-view="diary">
+            <div class="view-container">
+                <div class="diary-header">
+                    <h2 class="view-title">日记本</h2>
+                    <p class="view-subtitle">My Journal</p>
+                </div>
+                <div class="diary-grid" id="diaryGrid">
+                    <!-- JS动态生成 -->
+                </div>
+                <div class="diary-empty" id="diaryEmpty">
+                    <div class="empty-illustration">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    </div>
+                    <p>还没有日记</p>
+                    <p class="empty-hint">记录下你的每一天</p>
+                </div>
+                <button class="btn-compose" id="btnWriteDiary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    写日记
+                </button>
+            </div>
+        </section>
+
+        <!-- ⑤ 北欧地图 — 漂流瓶 -->
+        <section class="view view-hidden" id="view-map" data-view="map">
+            <div class="view-container">
+                <h2 class="view-title">北欧地图</h2>
+                <p class="view-subtitle">Nordic Map — 将信笺投入极光之下</p>
+                <div class="map-wrapper">
+                    <!-- 北欧地图 SVG — 放大版 800x600 -->
+                    <svg class="nordic-map" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <radialGradient id="mapGlow1" cx="25%" cy="15%" r="45%">
+                                <stop offset="0%" stop-color="rgba(212, 201, 200, 0.18)"/>
+                                <stop offset="100%" stop-color="transparent"/>
+                            </radialGradient>
+                            <radialGradient id="mapGlow2" cx="55%" cy="35%" r="40%">
+                                <stop offset="0%" stop-color="rgba(200, 168, 184, 0.14)"/>
+                                <stop offset="100%" stop-color="transparent"/>
+                            </radialGradient>
+                            <radialGradient id="mapGlow3" cx="70%" cy="50%" r="35%">
+                                <stop offset="0%" stop-color="rgba(180, 200, 210, 0.1)"/>
+                                <stop offset="100%" stop-color="transparent"/>
+                            </radialGradient>
+                            <filter id="mapBlur">
+                                <feGaussianBlur stdDeviation="0.6"/>
+                            </filter>
+                            <filter id="mapBlurWide">
+                                <feGaussianBlur stdDeviation="1.2"/>
+                            </filter>
+                            <!-- 海洋纹理 -->
+                            <pattern id="wavePattern" width="40" height="20" patternUnits="userSpaceOnUse">
+                                <path d="M0 10 Q10 5 20 10 Q30 15 40 10" stroke="rgba(200,185,175,0.08)" stroke-width="0.5" fill="none"/>
+                            </pattern>
+                        </defs>
+
+                        <!-- 海洋背景 -->
+                        <rect width="800" height="600" rx="20" fill="#FDFAF7"/>
+                        <rect width="800" height="600" rx="20" fill="url(#wavePattern)"/>
+                        <rect x="4" y="4" width="792" height="592" rx="18" fill="none" stroke="#E8E0D8" stroke-width="1"/>
+
+                        <!-- 格陵兰（左上角示意） -->
+                        <path d="M18 120 C22 100 35 85 50 80 C60 78 65 85 62 95 C58 108 50 118 45 130 C38 145 30 155 25 170 C20 180 18 190 22 200 C28 205 35 200 42 198 C50 195 55 200 50 210 C45 220 35 228 28 230 C18 228 10 218 8 205 C5 185 8 160 12 140 Z" fill="#F5F0E8" stroke="#E0D8D0" stroke-width="1"/>
+
+                        <!-- 冰岛 -->
+                        <ellipse cx="105" cy="305" rx="38" ry="42" fill="#F5F0E8" stroke="#E0D8D0" stroke-width="1" transform="rotate(-8 105 305)"/>
+
+                        <!-- 法罗群岛（小的几个点） -->
+                        <ellipse cx="107" cy="395" rx="10" ry="7" fill="#F5F0E8" stroke="#E0D8D0" stroke-width="1"/>
+
+                        <!-- 挪威海岸线（更精细） -->
+                        <path d="M155 68 C162 62 168 56 175 54 C182 50 188 52 192 58 C198 66 200 78 202 88 C206 96 208 105 210 112 C214 122 213 132 212 142 C218 150 222 160 225 172 C228 185 226 198 224 210 C228 222 230 235 228 248 C225 262 222 275 218 288 C214 302 212 315 208 328 C204 340 200 350 195 360 C192 368 188 374 182 380 C176 386 170 388 164 388 C158 386 153 380 148 374 C142 365 138 355 134 345 C128 330 122 315 118 300 C112 282 108 265 105 248 C100 228 96 210 92 195 C88 178 85 162 82 148 C78 132 75 115 78 100 C82 85 90 76 100 72 C112 67 128 65 140 66 Z" fill="#F5F0E8" stroke="#E0D8D0" stroke-width="1"/>
+
+                        <!-- 峡湾纹理线 -->
+                        <path d="M170 160 C175 175 172 190 178 205 C185 218 182 232 178 245" stroke="#E8E0D8" stroke-width="1" fill="none" opacity="0.6"/>
+                        <path d="M195 195 C198 210 195 225 200 240" stroke="#E8E0D8" stroke-width="1" fill="none" opacity="0.5"/>
+                        <path d="M155 310 C158 320 155 332 158 342 C162 355 160 368 156 378" stroke="#E8E0D8" stroke-width="0.8" fill="none" opacity="0.5"/>
+
+                        <!-- 瑞典主体 -->
+                        <path d="M210 65 C225 58 245 52 265 50 C290 48 315 52 335 58 C355 65 370 78 380 92 C386 105 388 120 385 135 C382 148 376 160 368 170 C362 178 354 182 345 185 C336 188 326 186 318 182 C310 175 304 168 296 160 C288 150 283 138 278 128 C274 116 272 102 270 90 C265 80 255 74 245 72 C232 70 218 68 210 65 Z" fill="#F7F3EE" stroke="#E0D8D0" stroke-width="1"/>
+
+                        <!-- 芬兰（北部 + 东部） -->
+                        <path d="M265 50 C278 42 295 36 310 38 C328 40 340 48 348 55 C355 48 365 40 375 35 C388 28 400 28 412 34 C424 42 430 55 433 70 C436 85 434 102 428 115 C420 130 412 140 400 145 C388 148 376 146 368 138 C358 128 352 115 346 108 C338 98 328 90 315 86 C302 82 288 78 275 76 C266 74 258 70 250 65 Z" fill="#F5F0E8" stroke="#E0D8D0" stroke-width="1"/>
+
+                        <!-- 芬兰南部延伸 -->
+                        <path d="M380 145 C390 152 398 158 405 168 C412 178 418 190 420 200 C422 212 420 222 415 230 C408 238 400 242 392 240 C384 236 376 228 370 218 C364 206 360 192 358 178 C355 165 358 152 365 147 Z" fill="#F7F3EE" stroke="#E0D8D0" stroke-width="1"/>
+
+                        <!-- 丹麦（西兰岛 + 菲英岛 + 日德兰半岛） -->
+                        <ellipse cx="295" cy="475" rx="22" ry="14" fill="#F5F0E8" stroke="#E0D8D0" stroke-width="1"/>
+                        <ellipse cx="265" cy="478" rx="16" ry="10" fill="#F5F0E8" stroke="#E0D8D0" stroke-width="1"/>
+                        <path d="M225 462 C218 455 215 448 218 442 C222 436 230 434 238 438 C245 442 250 450 252 460 C255 468 258 474 260 480 C262 486 260 490 255 492 C248 493 240 490 235 484 C230 478 227 470 225 462 Z" fill="#F5F0E8" stroke="#E0D8D0" stroke-width="1"/>
+
+                        <!-- 极光弧线（3条） -->
+                        <path d="M40 180 Q180 90 340 140 Q500 185 680 110 Q750 80 790 100" stroke="rgba(200,168,184,0.28)" stroke-width="24" fill="none" stroke-linecap="round" filter="url(#mapBlurWide)"/>
+                        <path d="M60 210 Q220 120 400 165 Q560 205 700 130" stroke="rgba(212,201,200,0.22)" stroke-width="18" fill="none" stroke-linecap="round" filter="url(#mapBlur)"/>
+                        <path d="M30 160 Q200 70 380 120 Q540 165 720 95" stroke="rgba(190,200,210,0.18)" stroke-width="14" fill="none" stroke-linecap="round" filter="url(#mapBlur)"/>
+
+                        <!-- 地点标记 -->
+                        <g id="mapPins">
+                            <!-- JS动态渲染 -->
+                        </g>
+                    </svg>
+                </div>
+                <p class="poetic-quote" id="mapQuote"></p>
+                <div class="map-actions">
+                    <button class="btn-primary" id="btnRandomLocation">随机前往一个地点</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ⑥ 好友页 -->
+        <section class="view view-hidden" id="view-friends" data-view="friends">
+            <div class="view-container">
+                <h2 class="view-title">好友</h2>
+                <p class="view-subtitle">Friends</p>
+                <!-- 添加好友 -->
+                <div class="add-friend-box">
+                    <p class="add-friend-hint">输入对方的极光ID，添加好友</p>
+                    <div class="add-friend-row">
+                        <input type="text" class="input-elegant" id="addFriendInput" placeholder="输入极光ID 或 名字" style="flex:1;text-align:left;padding:12px 16px;">
+                        <button class="btn-primary" id="btnAddFriend" style="white-space:nowrap;">添加</button>
+                    </div>
+                    <p class="input-error" id="addFriendError"></p>
+                </div>
+                <!-- 搜索已有好友 -->
+                <div class="friend-search">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="text" class="friend-search-input" id="friendSearch" placeholder="搜索已有好友...">
+                </div>
+                <div class="friend-grid" id="friendGrid">
+                    <!-- JS动态生成 -->
+                </div>
+                <div class="friend-empty" id="friendEmpty">
+                    <div class="empty-illustration">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                    </div>
+                    <p>还没有好友</p>
+                    <p class="empty-hint">去地图上投一封信，遇见有缘人</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ⑦ 个人主页 -->
+        <section class="view view-hidden" id="view-profile" data-view="profile">
+            <div class="view-container">
+                <!-- 个人信息头部 -->
+                <div class="profile-header fade-in">
+                    <div class="profile-avatar-lg" id="profileAvatar"></div>
+                    <h2 class="profile-name" id="profileName"></h2>
+                    <p class="profile-id" id="profileId"></p>
+                    <p class="profile-age-text" id="profileAge"></p>
+                    <button class="btn-back btn-sm" id="btnEditProfile" style="margin-top:8px;">编辑资料</button>
+                </div>
+
+                <!-- MBTI 结果 -->
+                <div class="profile-section fade-in" id="profileMbtiSection">
+                    <h3 class="profile-section-title">人格类型</h3>
+                    <div class="profile-mbti-card" id="profileMbtiCard">
+                        <p class="profile-mbti-not" id="profileMbtiNot">尚未测试 — <a href="#" data-nav="mbti" class="profile-link">去测试</a></p>
+                        <div class="profile-mbti-done" id="profileMbtiDone" style="display:none;">
+                            <span class="profile-mbti-type" id="profileMbtiType"></span>
+                            <span class="profile-mbti-nick" id="profileMbtiNick"></span>
+                            <p class="profile-mbti-desc" id="profileMbtiDesc"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 我的日记 -->
+                <div class="profile-section fade-in">
+                    <h3 class="profile-section-title">
+                        我的日记
+                        <span class="profile-count" id="profileDiaryCount"></span>
+                    </h3>
+                    <div class="profile-mini-list" id="profileDiaryList"></div>
+                </div>
+
+                <!-- 我寄出的信 -->
+                <div class="profile-section fade-in">
+                    <h3 class="profile-section-title">
+                        寄出的信
+                        <span class="profile-count" id="profileSentCount"></span>
+                    </h3>
+                    <div class="profile-mini-list" id="profileSentList"></div>
+                </div>
+
+                <!-- 收藏的漂流信 -->
+                <div class="profile-section fade-in">
+                    <h3 class="profile-section-title">
+                        捡到的漂流信
+                        <span class="profile-count" id="profileDriftCount"></span>
+                    </h3>
+                    <div class="profile-mini-list" id="profileDriftList"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ⑧ 发现页 -->
+        <section class="view view-hidden" id="view-discover" data-view="discover">
+            <div class="view-container">
+                <h2 class="view-title">遇见</h2>
+                <p class="view-subtitle">Discover</p>
+                <p class="poetic-quote" id="discoverQuote"></p>
+                <div class="profile-grid" id="profileGrid">
+                    <!-- JS动态生成 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ⑥ 信笺页 -->
+        <section class="view view-hidden" id="view-letters" data-view="letters">
+            <div class="view-container">
+                <h2 class="view-title">极光信笺</h2>
+                <p class="view-subtitle">Aurora Letters</p>
+                <!-- Tab切换 -->
+                <div class="letters-tabs">
+                    <button class="letters-tab active" data-tab="inbox">收件箱</button>
+                    <button class="letters-tab" data-tab="sent">已寄出</button>
+                </div>
+                <!-- 收件箱 -->
+                <div class="letters-panel" id="lettersInbox">
+                    <div class="letters-empty" id="inboxEmpty">
+                        <div class="empty-illustration">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        </div>
+                        <p>还没有信件</p>
+                        <p class="empty-hint">去发现页认识新朋友吧</p>
+                    </div>
+                    <div class="letters-list" id="inboxList"></div>
+                </div>
+                <!-- 已寄出 -->
+                <div class="letters-panel" id="lettersSent" style="display:none;">
+                    <div class="letters-empty" id="sentEmpty">
+                        <div class="empty-illustration">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </div>
+                        <p>还没有寄出过信件</p>
+                        <p class="empty-hint">写一封信，让它乘着极光出发</p>
+                    </div>
+                    <div class="letters-list" id="sentList"></div>
+                </div>
+                <!-- 写信按钮 -->
+                <button class="btn-compose" id="btnCompose">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    写信
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ==================== 页脚（Landing/Register页面隐藏） ==================== -->
+    <footer class="site-footer footer-hidden" id="siteFooter">
+        <div class="footer-illustration" aria-hidden="true">
+            <svg class="footer-svg" viewBox="0 0 1200 200" preserveAspectRatio="xMidYMid slice" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- 渐变定义 -->
+                <defs>
+                    <linearGradient id="footerSky" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="#FDFAF6"/>
+                        <stop offset="40%" stop-color="#F8F4EE"/>
+                        <stop offset="100%" stop-color="#F5F0E8"/>
+                    </linearGradient>
+                    <linearGradient id="auroraGrad1" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stop-color="rgba(212,201,200,0)" />
+                        <stop offset="30%" stop-color="rgba(212,201,200,0.18)" />
+                        <stop offset="70%" stop-color="rgba(200,168,184,0.14)" />
+                        <stop offset="100%" stop-color="rgba(212,201,200,0)" />
+                    </linearGradient>
+                    <linearGradient id="auroraGrad2" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stop-color="rgba(200,205,216,0)" />
+                        <stop offset="40%" stop-color="rgba(200,205,216,0.12)" />
+                        <stop offset="80%" stop-color="rgba(205,200,216,0.1)" />
+                        <stop offset="100%" stop-color="rgba(200,205,216,0)" />
+                    </linearGradient>
+                </defs>
+
+                <!-- 天空背景 -->
+                <rect width="1200" height="200" fill="url(#footerSky)"/>
+
+                <!-- 星星（闪烁） -->
+                <g class="footer-stars">
+                    <circle cx="80" cy="30" r="1.2" fill="#D4A5A5" opacity="0.5" class="star"/>
+                    <circle cx="200" cy="55" r="0.8" fill="#C8A8B8" opacity="0.4" class="star"/>
+                    <circle cx="340" cy="25" r="1.0" fill="#D4C9C8" opacity="0.55" class="star"/>
+                    <circle cx="500" cy="45" r="1.3" fill="#D4A5A5" opacity="0.45" class="star"/>
+                    <circle cx="650" cy="20" r="0.9" fill="#C8A8B8" opacity="0.5" class="star"/>
+                    <circle cx="800" cy="50" r="1.1" fill="#D4C9C8" opacity="0.4" class="star"/>
+                    <circle cx="950" cy="30" r="0.8" fill="#D4A5A5" opacity="0.5" class="star"/>
+                    <circle cx="1100" cy="55" r="1.0" fill="#C8A8B8" opacity="0.45" class="star"/>
+                    <circle cx="150" cy="70" r="0.7" fill="#D4C9C8" opacity="0.35" class="star"/>
+                    <circle cx="700" cy="60" r="0.7" fill="#D4A5A5" opacity="0.3" class="star"/>
+                    <circle cx="1050" cy="40" r="0.9" fill="#D4C9C8" opacity="0.4" class="star"/>
+                </g>
+
+                <!-- 极光波浪带1 -->
+                <path d="M0 70 Q200 40 400 65 Q600 90 800 55 Q1000 20 1200 60"
+                      stroke="url(#auroraGrad1)" stroke-width="28" fill="none" stroke-linecap="round" class="aurora-wave"/>
+                <!-- 极光波浪带2 -->
+                <path d="M0 95 Q250 70 500 90 Q750 110 1000 80 Q1100 65 1200 85"
+                      stroke="url(#auroraGrad2)" stroke-width="20" fill="none" stroke-linecap="round" class="aurora-wave"/>
+
+                <!-- 远山 -->
+                <path d="M0 200 L80 130 L140 155 L200 115 L260 140 L340 105 L400 135 L470 110 L530 140 L600 120 L660 145 L730 108 L790 138 L860 118 L930 148 L1000 125 L1060 150 L1120 130 L1200 155 L1200 200 Z"
+                      fill="#F0EBE5" class="mountain-back"/>
+
+                <!-- 中山 -->
+                <path d="M0 200 L60 145 L120 165 L190 125 L250 155 L310 130 L380 160 L440 135 L510 165 L580 140 L640 162 L710 128 L770 158 L830 138 L900 165 L970 142 L1030 160 L1090 145 L1150 160 L1200 148 L1200 200 Z"
+                      fill="#EDE8DD" class="mountain-mid"/>
+
+                <!-- 松树 -->
+                <g class="footer-trees" fill="#E0D8D0">
+                    <g class="pine-tree" transform="translate(30, 175)">
+                        <polygon points="8,0 16,30 0,30"/>
+                        <polygon points="8,10 15,35 1,35"/>
+                        <rect x="6" y="30" width="4" height="6" fill="#D4C9C8" rx="1"/>
+                    </g>
+                    <g class="pine-tree" transform="translate(160, 168)">
+                        <polygon points="10,0 20,38 0,38"/>
+                        <polygon points="10,12 18,44 2,44"/>
+                        <rect x="7" y="38" width="5" height="7" fill="#D4C9C8" rx="1"/>
+                    </g>
+                    <g class="pine-tree" transform="translate(320, 178)">
+                        <polygon points="6,0 12,22 0,22"/>
+                        <polygon points="6,8 11,28 1,28"/>
+                        <rect x="4" y="22" width="3" height="4" fill="#D4C9C8" rx="1"/>
+                    </g>
+                    <g class="pine-tree" transform="translate(480, 170)">
+                        <polygon points="9,0 18,34 0,34"/>
+                        <polygon points="9,11 17,42 1,42"/>
+                        <rect x="6" y="34" width="5" height="6" fill="#D4C9C8" rx="1"/>
+                    </g>
+                    <g class="pine-tree" transform="translate(640, 175)">
+                        <polygon points="7,0 14,26 0,26"/>
+                        <polygon points="7,9 13,34 1,34"/>
+                        <rect x="5" y="26" width="4" height="5" fill="#D4C9C8" rx="1"/>
+                    </g>
+                    <g class="pine-tree" transform="translate(800, 172)">
+                        <polygon points="10,0 20,36 0,36"/>
+                        <polygon points="10,12 18,44 2,44"/>
+                        <rect x="7" y="36" width="5" height="6" fill="#D4C9C8" rx="1"/>
+                    </g>
+                    <g class="pine-tree" transform="translate(960, 177)">
+                        <polygon points="6,0 12,24 0,24"/>
+                        <polygon points="6,8 11,30 1,30"/>
+                        <rect x="4" y="24" width="3" height="4" fill="#D4C9C8" rx="1"/>
+                    </g>
+                    <g class="pine-tree" transform="translate(1120, 168)">
+                        <polygon points="9,0 18,36 0,36"/>
+                        <polygon points="9,11 17,44 1,44"/>
+                        <rect x="6" y="36" width="5" height="6" fill="#D4C9C8" rx="1"/>
+                    </g>
+                </g>
+
+                <!-- 前景地面 -->
+                <path d="M0 190 Q300 185 600 190 Q900 195 1200 188 L1200 200 L0 200 Z"
+                      fill="#F5F0E8"/>
+            </svg>
+        </div>
+        <div class="footer-content">
+            <span class="footer-brand">极光信笺 / Aurora Letters</span>
+            <p class="footer-quote">“每一封信都是一道极光，穿越寒冷的北境，抵达温暖的灵魂。”</p>
+            <p class="footer-copy">&copy; 2026 Aurora Letters</p>
+        </div>
+    </footer>
+
+    <!-- ==================== 写信弹窗 ==================== -->
+    <div class="modal-overlay" id="composeModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="composeTitle">写一封信</h3>
+                <button class="modal-close" id="btnCloseCompose">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <label class="compose-label">收信人</label>
+                <select class="input-elegant" id="composeRecipient"></select>
+                <label class="compose-label">你的信</label>
+                <textarea class="input-elegant compose-textarea" id="composeContent" placeholder="写下你想说的话...也许是一首诗，也许是今天的阳光..." maxlength="500"></textarea>
+                <p class="compose-counter"><span id="composeCount">0</span> / 500</p>
+                <p class="input-error" id="composeError"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" id="btnSendLetter" disabled>送入极光</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 信件详情弹窗 ==================== -->
+    <div class="modal-overlay" id="letterDetailModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="detailTitle">信件详情</h3>
+                <button class="modal-close" id="btnCloseDetail">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body" id="detailContent"></div>
+        </div>
+    </div>
+
+    <!-- ==================== 写日记弹窗 ==================== -->
+    <div class="modal-overlay" id="diaryWriteModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="diaryWriteTitle">写日记</h3>
+                <button class="modal-close" id="btnCloseDiaryWrite">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <label class="compose-label">标题</label>
+                <input type="text" class="input-elegant diary-title-input" id="diaryTitle" placeholder="给这一天起个名字..." maxlength="30">
+                <label class="compose-label">内容</label>
+                <textarea class="input-elegant compose-textarea" id="diaryContent" placeholder="今天发生了什么..." maxlength="2000"></textarea>
+                <p class="compose-counter"><span id="diaryCount">0</span> / 2000</p>
+                <!-- 照片上传 -->
+                <label class="compose-label">照片（最多3张）</label>
+                <div class="diary-photo-upload">
+                    <div class="diary-photo-previews" id="diaryPhotoPreviews"></div>
+                    <label class="diary-photo-add" id="diaryPhotoAddLabel">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <span>添加照片</span>
+                        <input type="file" accept="image/*" id="diaryPhotoInput" multiple hidden>
+                    </label>
+                </div>
+                <p class="input-error" id="diaryPhotoError"></p>
+                <!-- 隐私设置 -->
+                <label class="compose-label">可见范围</label>
+                <div class="privacy-toggle">
+                    <button class="privacy-option active" data-privacy="public">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        公开
+                    </button>
+                    <button class="privacy-option" data-privacy="private">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                        私密
+                    </button>
+                </div>
+                <p class="input-error" id="diaryError"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" id="btnSaveDiary">保存日记</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 日记详情弹窗 ==================== -->
+    <div class="modal-overlay" id="diaryDetailModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="diaryDetailTitle">日记详情</h3>
+                <button class="modal-close" id="btnCloseDiaryDetail">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body" id="diaryDetailContent"></div>
+        </div>
+    </div>
+
+    <!-- ==================== 地点详情弹窗 ==================== -->
+    <div class="modal-overlay" id="locationModal">
+        <div class="modal-card location-modal-card">
+            <div class="modal-header">
+                <h3 id="locationTitle">地点</h3>
+                <button class="modal-close" id="btnCloseLocation">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- 氛围渐变卡片 -->
+                <div class="location-atmosphere" id="locationAtmosphere">
+                    <span class="location-country-tag" id="locationCountryTag"></span>
+                    <span class="location-atmosphere-label" id="locationAtmosphereLabel"></span>
+                </div>
+                <!-- 诗意描述 -->
+                <p class="location-desc" id="locationDesc"></p>
+                <!-- 地理知识卡片 -->
+                <div class="location-facts-card">
+                    <span class="location-facts-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </span>
+                    <p class="location-facts-text" id="locationFacts"></p>
+                </div>
+                <!-- 漂流信 -->
+                <p class="location-letter-count" id="locationLetterCount"></p>
+                <div class="location-letters" id="locationLetters"></div>
+            </div>
+            <div class="modal-footer location-footer">
+                <button class="btn-back" id="btnFindLetter">捞一封信</button>
+                <button class="btn-primary" id="btnDropLetter">在此投信</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 投信弹窗 ==================== -->
+    <div class="modal-overlay" id="dropLetterModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="dropLetterTitle">投入一封信</h3>
+                <button class="modal-close" id="btnCloseDropLetter">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p class="location-label" id="dropLocationName"></p>
+                <textarea class="input-elegant compose-textarea" id="dropContent" placeholder="写一封信，让它漂流到有缘人手中..." maxlength="500"></textarea>
+                <p class="compose-counter"><span id="dropCount">0</span> / 500</p>
+                <p class="input-error" id="dropError"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" id="btnConfirmDrop">投入大海</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 读信弹窗 ==================== -->
+    <div class="modal-overlay" id="readLetterModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>一封漂流信</h3>
+                <button class="modal-close" id="btnCloseReadLetter">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body" id="readLetterContent"></div>
+            <div class="modal-footer" id="readLetterActions"></div>
+        </div>
+    </div>
+
+    <!-- ==================== 欢迎弹窗（新用户注册后） ==================== -->
+    <div class="modal-overlay" id="welcomeModal">
+        <div class="modal-card welcome-card">
+            <div class="welcome-aurora">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/>
+                    <path d="M7 12c0 2.76 2.24 5 5 5s5-2.24 5-5-2.24-5-5-5-5 2.24-5 5z" opacity="0.5"/>
+                    <circle cx="12" cy="12" r="3"/>
+                </svg>
+            </div>
+            <h2 class="welcome-title">欢迎来到极光信笺</h2>
+            <p class="welcome-sub">Welcome to Aurora Letters</p>
+            <p class="welcome-desc">每一封信都是一道极光，穿越寒冷的北境，抵达温暖的灵魂。你的旅程从这里开始。</p>
+            <div class="welcome-actions">
+                <button class="btn-back" id="btnWelcomeSkip">先逛逛</button>
+                <button class="btn-primary" id="btnWelcomeProfile">完善资料</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== Toast通知 ==================== -->
+    <div class="toast" id="toast"></div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
